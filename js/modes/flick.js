@@ -37,11 +37,9 @@ export class FlickMode {
     }
 
     const size = this.settings.targetSize * this._diff.sizeMul;
-    const dist = this.settings.targetDistance;
     const rangeDeg = this.settings.spawnRangeDeg * this._diff.rangeMul;
-    const camPos = this.engine.camera.position;
 
-    let px = 0, py = 0, pz = 0;
+    let pos = this.engine.pointOnFrontWallFromAngles(this.engine.yaw, this.engine.pitch, size);
     // Try up to 12 times to land a spawn that isn't intersecting the floor.
     for (let i = 0; i < 12; i++) {
       const angle = Math.random() * Math.PI * 2;
@@ -56,19 +54,13 @@ export class FlickMode {
       const yaw = this.engine.yaw + yawOff;
       const pitch = THREE.MathUtils.clamp(this.engine.pitch + pitchOff, -Math.PI / 3, Math.PI / 3);
 
-      const cosP = Math.cos(pitch);
-      const fx = -Math.sin(yaw) * cosP;
-      const fy = Math.sin(pitch);
-      const fz = -Math.cos(yaw) * cosP;
+      pos = this.engine.pointOnFrontWallFromAngles(yaw, pitch, size);
 
-      px = camPos.x + fx * dist;
-      py = camPos.y + fy * dist;
-      pz = camPos.z + fz * dist;
-
-      if (py - size > FLOOR_Y) break;
+      if (pos.y - size > FLOOR_Y) break;
     }
     // Final guard: lift target above floor even if the loop failed.
-    if (py - size <= FLOOR_Y) py = FLOOR_Y + size + 0.01;
+    if (pos.y - size <= FLOOR_Y) pos.y = FLOOR_Y + size + 0.01;
+    this.engine.clampToFrontWall(pos, size);
 
     const targetColor = new THREE.Color(this.settings.targetColor || "#ff4d6d");
     const geo = new THREE.SphereGeometry(size, 20, 14);
@@ -78,7 +70,7 @@ export class FlickMode {
       roughness: 0.4,
     });
     const m = new THREE.Mesh(geo, mat);
-    m.position.set(px, py, pz);
+    m.position.copy(pos);
     m.userData.radius = size;
     this.engine.targets.add(m);
     this._target = m;

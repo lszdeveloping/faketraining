@@ -38,14 +38,13 @@ export class MicroflickMode {
       this._target.material.dispose();
     }
     const size = Math.max(0.12, this.settings.targetSize * this._diff.sizeMul * 0.6);
-    const dist = this.settings.targetDistance;
     const FLOOR_Y = 0.05;
-    const camPos = this.engine.camera.position;
 
     // Pick a random offset in degrees from CURRENT look direction.
     // Microflick stays small even with big spawnRange; cap to maxDeg.
     const maxDeg = Math.min(this._diff.maxDeg, this.settings.spawnRangeDeg || this._diff.maxDeg);
-    let offsetDeg = 0, px = 0, py = 0, pz = 0;
+    let offsetDeg = 0;
+    let pos = this.engine.pointOnFrontWallFromAngles(this.engine.yaw, this.engine.pitch, size);
     let chosenAngle = 0;
     let hasChosenAngle = false;
     for (let i = 0; i < 14; i++) {
@@ -64,21 +63,15 @@ export class MicroflickMode {
       const yaw = this.engine.yaw + offX;
       const pitch = THREE.MathUtils.clamp(this.engine.pitch + offY, -Math.PI / 3, Math.PI / 3);
 
-      const cosP = Math.cos(pitch);
-      const fx = -Math.sin(yaw) * cosP;
-      const fy = Math.sin(pitch);
-      const fz = -Math.cos(yaw) * cosP;
-
-      px = camPos.x + fx * dist;
-      py = camPos.y + fy * dist;
-      pz = camPos.z + fz * dist;
-      if (py - size > FLOOR_Y) {
+      pos = this.engine.pointOnFrontWallFromAngles(yaw, pitch, size);
+      if (pos.y - size > FLOOR_Y) {
         chosenAngle = angle;
         hasChosenAngle = true;
         break;
       }
     }
-    if (py - size <= FLOOR_Y) py = FLOOR_Y + size + 0.01;
+    if (pos.y - size <= FLOOR_Y) pos.y = FLOOR_Y + size + 0.01;
+    this.engine.clampToFrontWall(pos, size);
 
     const targetColor = new THREE.Color(this.settings.targetColor || "#36d1ff");
     const geo = new THREE.SphereGeometry(size, 20, 16);
@@ -88,7 +81,7 @@ export class MicroflickMode {
       roughness: 0.35,
     });
     const m = new THREE.Mesh(geo, mat);
-    m.position.set(px, py, pz);
+    m.position.copy(pos);
     m.userData.radius = size;
     m.userData.offsetDeg = offsetDeg;
     this.engine.targets.add(m);

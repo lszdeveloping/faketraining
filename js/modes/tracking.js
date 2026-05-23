@@ -28,7 +28,7 @@ export class TrackingMode {
 
   start() {
     const size = this.settings.targetSize * this._diff.sizeMul;
-    const dist = this.settings.targetDistance;
+    const dist = Math.min(this.settings.targetDistance, this.engine.getFrontWallDistance(size));
     const targetColor = new THREE.Color(this.settings.targetColor || "#ffcc4d");
     const geo = new THREE.SphereGeometry(size, 24, 18);
     const mat = new THREE.MeshStandardMaterial({
@@ -38,6 +38,7 @@ export class TrackingMode {
     });
     const m = new THREE.Mesh(geo, mat);
     m.position.set(0, 1.6, -dist);
+    this.engine.clampToFrontWall(m.position, size);
     m.userData.radius = size;
     this.engine.targets.add(m);
     this._target = m;
@@ -52,7 +53,8 @@ export class TrackingMode {
     this._t += dt;
     this._patternTimer += dt;
 
-    const dist = this.settings.targetDistance;
+    const radius = this._target.userData.radius || 0.6;
+    const dist = Math.min(this.settings.targetDistance, this.engine.getFrontWallDistance(radius));
     const bounds = Math.min(12, dist * 0.7);
 
     let mode = this._pattern;
@@ -61,7 +63,6 @@ export class TrackingMode {
       mode = ["strafe", "circular", "strafe"][phase];
     }
 
-    const radius = this._target.userData.radius || 0.6;
     const minY = 0.05 + radius + 0.01; // never enter the floor
 
     if (mode === "strafe") {
@@ -69,6 +70,7 @@ export class TrackingMode {
       let y = 1.6 + Math.sin(this._t * this._velocity * 0.55) * (bounds * 0.25);
       if (y < minY) y = minY;
       this._target.position.set(x, y, -dist);
+      this.engine.clampToFrontWall(this._target.position, radius);
     } else if (mode === "circular") {
       const r = bounds * 0.5;
       const w = this._velocity * 0.4;
@@ -79,6 +81,7 @@ export class TrackingMode {
         y,
         -dist + Math.sin(this._t * w * 0.5) * 1.5
       );
+      this.engine.clampToFrontWall(this._target.position, radius);
     } else {
       if (this._patternTimer > 0.6 + Math.random() * 0.6) {
         this._patternTimer = 0;
@@ -88,6 +91,7 @@ export class TrackingMode {
       p.x = THREE.MathUtils.clamp(p.x + this._dir.x * this._velocity * dt, -bounds, bounds);
       p.y = THREE.MathUtils.clamp(p.y + this._dir.y * this._velocity * dt, minY, 1.6 + bounds * 0.4);
       p.z = -dist;
+      this.engine.clampToFrontWall(p, radius);
     }
 
     const aiming = this.engine.isAimingAt(this._target);

@@ -5,6 +5,7 @@ import { deltaToDegrees } from "./sensitivity.js";
 
 const DEG2RAD = Math.PI / 180;
 const PITCH_LIMIT = 89.5 * DEG2RAD;
+const FLOOR_Y = 0.05;
 
 const BG_THEMES = {
   light: {
@@ -52,6 +53,12 @@ export class Engine {
     // Camera rig (yaw / pitch separate so euler order doesn't matter for input math)
     this.yaw = 0;
     this.pitch = 0;
+    this.frontWall = {
+      width: 40,
+      height: 18,
+      centerY: 4,
+      z: -20,
+    };
 
     this._buildEnvironment();
 
@@ -142,12 +149,50 @@ export class Engine {
     this.grid = grid;
 
     // Back wall plane to spawn targets onto (visual marker).
-    const wallGeo = new THREE.PlaneGeometry(40, 18);
+    const wallGeo = new THREE.PlaneGeometry(this.frontWall.width, this.frontWall.height);
     const wallMat = new THREE.MeshStandardMaterial({ color: 0x31394b, roughness: 1 });
     const wall = new THREE.Mesh(wallGeo, wallMat);
-    wall.position.set(0, 4, -20);
+    wall.position.set(0, this.frontWall.centerY, this.frontWall.z);
     this.scene.add(wall);
     this.wall = wall;
+  }
+
+  getFrontWallDistance(radius = 0) {
+    return Math.max(1, Math.abs(this.frontWall.z - this.camera.position.z) - radius);
+  }
+
+  clampToFrontWall(position, radius = 0) {
+    const halfW = this.frontWall.width / 2;
+    const halfH = this.frontWall.height / 2;
+    const margin = radius + 0.05;
+    const minY = Math.max(FLOOR_Y + margin, this.frontWall.centerY - halfH + margin);
+    const maxY = this.frontWall.centerY + halfH - margin;
+
+    position.x = THREE.MathUtils.clamp(position.x, -halfW + margin, halfW - margin);
+    position.y = THREE.MathUtils.clamp(position.y, minY, maxY);
+    position.z = Math.max(position.z, this.frontWall.z + margin);
+    return position;
+  }
+
+  pointOnFrontWallFromAngles(yaw, pitch, radius = 0) {
+    const margin = radius + 0.05;
+    const targetZ = this.frontWall.z + margin;
+    const camPos = this.camera.position;
+    const cosP = Math.cos(pitch);
+    const fx = -Math.sin(yaw) * cosP;
+    const fy = Math.sin(pitch);
+    const fz = -Math.cos(yaw) * cosP;
+
+    if (fz >= -0.02) {
+      return this.clampToFrontWall(new THREE.Vector3(0, camPos.y, targetZ), radius);
+    }
+
+    const t = (targetZ - camPos.z) / fz;
+    return this.clampToFrontWall(new THREE.Vector3(
+      camPos.x + fx * t,
+      camPos.y + fy * t,
+      targetZ
+    ), radius);
   }
 
   setFov(fovDeg) {
