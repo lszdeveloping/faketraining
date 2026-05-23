@@ -21,6 +21,9 @@ export function bindMenu(onStart) {
   $("#targetSize").value = state.targetSize;
   $("#targetDistance").value = state.targetDistance;
   $("#spawnRangeDeg").value = state.spawnRangeDeg;
+  $("#trackingTargetSize").value = state.trackingTargetSize;
+  $("#trackingSpeed").value = state.trackingSpeed;
+  $("#trackingRandomness").value = state.trackingRandomness;
   $("#targetColor").value = state.targetColor;
   $("#bgTheme").value = state.bgTheme;
   $("#pixelRatioCap").value = state.pixelRatioCap;
@@ -64,6 +67,9 @@ export function bindMenu(onStart) {
     ["#targetSize", "targetSize", parseFloat],
     ["#targetDistance", "targetDistance", parseFloat],
     ["#spawnRangeDeg", "spawnRangeDeg", parseFloat],
+    ["#trackingTargetSize", "trackingTargetSize", parseFloat],
+    ["#trackingSpeed", "trackingSpeed", parseFloat],
+    ["#trackingRandomness", "trackingRandomness", (v) => parseInt(v, 10)],
     ["#pixelRatioCap", "pixelRatioCap", parseFloat],
     ["#crossSize", "crossSize", (v) => parseInt(v, 10)],
     ["#crossThick", "crossThick", (v) => parseInt(v, 10)],

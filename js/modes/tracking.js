@@ -1,14 +1,6 @@
 import * as THREE from "three";
 
-// TRACKING: single moving target. Player holds aim on it.
-// Movement patterns: strafe, circular, mixed with accel/decel.
-
-const DIFFICULTY = {
-  easy: { speed: 2.5, sizeMul: 1.3, pattern: "strafe" },
-  medium: { speed: 4.0, sizeMul: 1.0, pattern: "mixed" },
-  hard: { speed: 6.0, sizeMul: 0.8, pattern: "mixed" },
-  custom: { speed: 4.0, sizeMul: 1.0, pattern: "mixed" },
-};
+// TRACKING: one target moves inside the front wall bounds with continuous random steering.
 
 export class TrackingMode {
   constructor(engine, stats, settings) {
@@ -16,19 +8,18 @@ export class TrackingMode {
     this.stats = stats;
     this.settings = settings;
     this.name = "tracking";
-    this._diff = DIFFICULTY[settings.difficulty] || DIFFICULTY.medium;
     this._target = null;
     this._t = 0;
-    this._dir = new THREE.Vector3(1, 0, 0);
-    this._velocity = this._diff.speed;
-    this._patternTimer = 0;
-    this._pattern = this._diff.pattern;
+    this._velocity = new THREE.Vector3();
+    this._desiredVelocity = new THREE.Vector3();
+    this._changeTimer = 0;
+    this._nextChange = 0;
     this._onTargetSamples = [];
   }
 
   start() {
-    const size = this.settings.targetSize * this._diff.sizeMul;
-    const dist = Math.min(this.settings.targetDistance, this.engine.getFrontWallDistance(size));
+    const size = Math.max(0.1, this.settings.trackingTargetSize || this.settings.targetSize);
+    const bounds = this.engine.getFrontWallBounds(size);
     const targetColor = new THREE.Color(this.settings.targetColor || "#ffcc4d");
     const geo = new THREE.SphereGeometry(size, 24, 18);
     const mat = new THREE.MeshStandardMaterial({
@@ -37,62 +28,38 @@ export class TrackingMode {
       roughness: 0.4,
     });
     const m = new THREE.Mesh(geo, mat);
-    m.position.set(0, 1.6, -dist);
-    this.engine.clampToFrontWall(m.position, size);
+    m.position.set(
+      THREE.MathUtils.lerp(bounds.minX, bounds.maxX, Math.random()),
+      THREE.MathUtils.lerp(bounds.minY, bounds.maxY, Math.random()),
+      bounds.z
+    );
     m.userData.radius = size;
     this.engine.targets.add(m);
     this._target = m;
+    this._pickNewVelocity(true);
   }
 
   onShoot() {
     // Tracking scores by time-on-target, not by clicks. Clicks are ignored.
   }
 
-  update(dt, now) {
+  update(dt) {
     if (!this._target) return;
     this._t += dt;
-    this._patternTimer += dt;
+    this._changeTimer += dt;
 
-    const radius = this._target.userData.radius || 0.6;
-    const dist = Math.min(this.settings.targetDistance, this.engine.getFrontWallDistance(radius));
-    const bounds = Math.min(12, dist * 0.7);
-
-    let mode = this._pattern;
-    if (mode === "mixed") {
-      const phase = Math.floor(this._t / 3) % 3;
-      mode = ["strafe", "circular", "strafe"][phase];
+    if (this._changeTimer >= this._nextChange) {
+      this._pickNewVelocity(false);
     }
 
-    const minY = 0.05 + radius + 0.01; // never enter the floor
+    const randomness = this._randomness();
+    const steer = THREE.MathUtils.lerp(2.8, 8.5, randomness);
+    this._velocity.lerp(this._desiredVelocity, Math.min(1, dt * steer));
 
-    if (mode === "strafe") {
-      const x = Math.sin(this._t * this._velocity * 0.35) * bounds;
-      let y = 1.6 + Math.sin(this._t * this._velocity * 0.55) * (bounds * 0.25);
-      if (y < minY) y = minY;
-      this._target.position.set(x, y, -dist);
-      this.engine.clampToFrontWall(this._target.position, radius);
-    } else if (mode === "circular") {
-      const r = bounds * 0.5;
-      const w = this._velocity * 0.4;
-      let y = 1.6 + Math.sin(this._t * w) * r * 0.6;
-      if (y < minY) y = minY;
-      this._target.position.set(
-        Math.cos(this._t * w) * r,
-        y,
-        -dist + Math.sin(this._t * w * 0.5) * 1.5
-      );
-      this.engine.clampToFrontWall(this._target.position, radius);
-    } else {
-      if (this._patternTimer > 0.6 + Math.random() * 0.6) {
-        this._patternTimer = 0;
-        this._dir.set((Math.random() - 0.5) * 2, (Math.random() - 0.5) * 0.6, 0).normalize();
-      }
-      const p = this._target.position;
-      p.x = THREE.MathUtils.clamp(p.x + this._dir.x * this._velocity * dt, -bounds, bounds);
-      p.y = THREE.MathUtils.clamp(p.y + this._dir.y * this._velocity * dt, minY, 1.6 + bounds * 0.4);
-      p.z = -dist;
-      this.engine.clampToFrontWall(p, radius);
-    }
+    const p = this._target.position;
+    p.addScaledVector(this._velocity, dt);
+    this._applyNoise(p, dt, randomness);
+    this._bounceInsideWall();
 
     const aiming = this.engine.isAimingAt(this._target);
     this.stats.registerTracking(dt, aiming);
@@ -105,6 +72,60 @@ export class TrackingMode {
       this.stats.score -= 2 * dt;
       if (this.stats.score < 0) this.stats.score = 0;
     }
+  }
+
+  _randomness() {
+    return THREE.MathUtils.clamp((this.settings.trackingRandomness ?? 70) / 100, 0, 1);
+  }
+
+  _speed() {
+    return Math.max(0.2, this.settings.trackingSpeed || 4.5);
+  }
+
+  _pickNewVelocity(initial) {
+    const randomness = this._randomness();
+    const angle = Math.random() * Math.PI * 2;
+    const speedJitter = THREE.MathUtils.lerp(0.75, 1.35, Math.random());
+    const yBias = THREE.MathUtils.lerp(0.55, 1.0, randomness);
+    const speed = this._speed() * speedJitter;
+
+    this._desiredVelocity.set(
+      Math.cos(angle) * speed,
+      Math.sin(angle) * speed * yBias,
+      0
+    );
+
+    if (initial) this._velocity.copy(this._desiredVelocity);
+    this._changeTimer = 0;
+    this._nextChange = THREE.MathUtils.lerp(1.1, 0.22, randomness) + Math.random() * 0.35;
+  }
+
+  _applyNoise(position, dt, randomness) {
+    if (randomness <= 0) return;
+    const speed = this._speed();
+    const wobble = Math.sin(this._t * (5.2 + randomness * 6.5)) * speed * randomness * 0.18;
+    const drift = Math.cos(this._t * (3.7 + randomness * 5.0)) * speed * randomness * 0.12;
+    position.x += wobble * dt;
+    position.y += drift * dt;
+  }
+
+  _bounceInsideWall() {
+    const radius = this._target.userData.radius || 0.6;
+    const bounds = this.engine.getFrontWallBounds(radius);
+    const p = this._target.position;
+
+    if (p.x < bounds.minX || p.x > bounds.maxX) {
+      p.x = THREE.MathUtils.clamp(p.x, bounds.minX, bounds.maxX);
+      this._velocity.x *= -0.9;
+      this._desiredVelocity.x *= -1;
+    }
+    if (p.y < bounds.minY || p.y > bounds.maxY) {
+      p.y = THREE.MathUtils.clamp(p.y, bounds.minY, bounds.maxY);
+      this._velocity.y *= -0.9;
+      this._desiredVelocity.y *= -1;
+    }
+
+    p.z = bounds.z;
   }
 
   /**

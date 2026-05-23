@@ -174,6 +174,19 @@ export class Engine {
     return position;
   }
 
+  getFrontWallBounds(radius = 0) {
+    const halfW = this.frontWall.width / 2;
+    const halfH = this.frontWall.height / 2;
+    const margin = radius + 0.05;
+    return {
+      minX: -halfW + margin,
+      maxX: halfW - margin,
+      minY: Math.max(FLOOR_Y + margin, this.frontWall.centerY - halfH + margin),
+      maxY: this.frontWall.centerY + halfH - margin,
+      z: this.frontWall.z + margin,
+    };
+  }
+
   pointOnFrontWallFromAngles(yaw, pitch, radius = 0) {
     const margin = radius + 0.05;
     const targetZ = this.frontWall.z + margin;
