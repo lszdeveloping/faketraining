@@ -1,0 +1,230 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Fake Training</title>
+  <link rel="stylesheet" href="styles.css" />
+  <script type="importmap">
+  {
+    "imports": {
+      "three": "https://unpkg.com/three@0.160.0/build/three.module.js"
+    }
+  }
+  </script>
+</head>
+<body>
+  <div id="app">
+    <section id="menu" class="screen active">
+      <header class="brand">
+        <h1>Fake Training</h1>
+        <p class="tag">Treino de mira 3D - Valorant &amp; CS2</p>
+      </header>
+
+      <div class="panels">
+        <div class="panel">
+          <h2>Modo</h2>
+          <div class="mode-grid">
+            <button class="mode-card" data-mode="flick">
+              <div class="mode-title">Flick</div>
+              <div class="mode-desc">Alvos aleatorios - reacao e precisao</div>
+            </button>
+            <button class="mode-card" data-mode="microflick">
+              <div class="mode-title">Microflick</div>
+              <div class="mode-desc">Pequenos ajustes proximos a mira</div>
+            </button>
+            <button class="mode-card" data-mode="tracking">
+              <div class="mode-title">Tracking</div>
+              <div class="mode-desc">Mantenha a mira no alvo movel</div>
+            </button>
+          </div>
+        </div>
+
+        <div class="panel">
+          <h2>Sensibilidade do jogo</h2>
+          <div class="form-grid">
+            <label>Jogo
+              <select id="game">
+                <option value="valorant">Valorant</option>
+                <option value="cs2">CS2</option>
+              </select>
+            </label>
+            <label>Sensibilidade
+              <input id="sens" type="number" step="0.001" min="0.001" value="0.4" />
+            </label>
+            <label>DPI
+              <input id="dpi" type="number" step="50" min="100" value="800" />
+            </label>
+            <label>FOV
+              <input id="fov" type="number" step="1" min="60" max="120" value="103" />
+            </label>
+          </div>
+          <div class="readouts">
+            <div><span>eDPI</span><b id="r-edpi">-</b></div>
+            <div><span>cm/360</span><b id="r-cm360">-</b></div>
+            <div><span id="r-equiv-label">CS2 equivalente</span><b id="r-equiv">-</b></div>
+          </div>
+        </div>
+
+        <div class="panel panel-train">
+          <h2>Treino</h2>
+          <div class="panel-split">
+            <div class="form-grid">
+              <label>Duracao
+                <select id="duration">
+                  <option value="30">30s</option>
+                  <option value="60" selected>60s</option>
+                  <option value="90">90s</option>
+                  <option value="custom">Personalizado</option>
+                </select>
+              </label>
+              <label id="duration-custom-wrap" style="display:none">Segundos
+                <input id="duration-custom" type="number" min="5" max="600" value="45" />
+              </label>
+              <label>Tamanho do alvo
+                <input id="targetSize" type="number" step="0.05" min="0.1" max="3" value="0.6" />
+              </label>
+              <label>Distancia dos alvos
+                <input id="targetDistance" type="number" step="1" min="3" max="60" value="15" />
+              </label>
+              <label>Spawn range (graus do centro)
+                <input id="spawnRangeDeg" type="number" step="1" min="2" max="80" value="30" />
+              </label>
+              <label>Cor do alvo
+                <input id="targetColor" type="color" value="#ff4d6d" />
+              </label>
+              <label>Fundo
+                <select id="bgTheme">
+                  <option value="light">Claro</option>
+                  <option value="dark" selected>Dark (cinza)</option>
+                  <option value="black">Muito dark (preto)</option>
+                </select>
+              </label>
+              <label>Dificuldade
+                <select id="difficulty">
+                  <option value="easy">Facil</option>
+                  <option value="medium" selected>Medio</option>
+                  <option value="hard">Dificil</option>
+                  <option value="custom">Custom</option>
+                </select>
+              </label>
+              <label>Pixel ratio cap
+                <input id="pixelRatioCap" type="number" step="0.05" min="0.6" max="2" value="1.25" />
+              </label>
+              <label>Antialias
+                <select id="antialias">
+                  <option value="off" selected>Desligado</option>
+                  <option value="on">Ligado</option>
+                </select>
+              </label>
+            </div>
+            <div class="preview-box">
+              <div class="preview-label">Alvo + area de spawn</div>
+              <canvas id="target-preview" width="320" height="200"></canvas>
+            </div>
+          </div>
+        </div>
+
+        <div class="panel">
+          <h2>Mira</h2>
+          <div class="panel-split">
+            <div class="form-grid">
+              <label>Estilo
+                <select id="crossStyle">
+                  <option value="dot">Ponto</option>
+                  <option value="cross" selected>Cruz</option>
+                  <option value="both">Ponto + Cruz</option>
+                </select>
+              </label>
+              <label>Cor
+                <input id="crossColor" type="color" value="#00ff88" />
+              </label>
+              <label>Tamanho
+                <input id="crossSize" type="number" min="1" max="40" value="10" />
+              </label>
+              <label>Espessura
+                <input id="crossThick" type="number" min="1" max="8" value="2" />
+              </label>
+            </div>
+            <div class="preview-box">
+              <div class="preview-label">Preview da mira</div>
+              <canvas id="crosshair-preview" width="320" height="200"></canvas>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <div class="warning">
+        Para melhor precisao, use em tela cheia e com aceleracao do mouse desativada no sistema.
+      </div>
+
+      <div class="cta-row">
+        <button id="start-btn" class="primary">Iniciar treino (Flick)</button>
+        <button id="fullscreen-btn" class="ghost">Tela cheia</button>
+      </div>
+    </section>
+
+    <section id="game-screen" class="screen">
+      <canvas id="three-canvas"></canvas>
+
+      <div id="crosshair"></div>
+      <div id="fps-meter">FPS: --</div>
+
+      <div id="hud">
+        <div class="hud-row top">
+          <div class="hud-cell"><span>Tempo</span><b id="hud-time">--</b></div>
+          <div class="hud-cell"><span>Score</span><b id="hud-score">0</b></div>
+          <div class="hud-cell"><span>Acertos</span><b id="hud-hits">0</b></div>
+          <div class="hud-cell"><span>Precisao</span><b id="hud-acc">0%</b></div>
+          <div class="hud-cell"><span>Modo</span><b id="hud-mode">-</b></div>
+          <div class="hud-cell"><span>Jogo</span><b id="hud-game">-</b></div>
+          <div class="hud-cell"><span>Sens</span><b id="hud-sens">-</b></div>
+          <div class="hud-cell"><span>cm/360</span><b id="hud-cm360">-</b></div>
+          <div class="hud-actions">
+            <button id="pause-btn" class="ghost-sm">Pausar</button>
+            <button id="restart-btn" class="ghost-sm">Reiniciar</button>
+            <button id="quit-btn" class="ghost-sm">Sair</button>
+          </div>
+        </div>
+      </div>
+
+      <div id="click-overlay" class="overlay">
+        <div class="overlay-card">
+          <h2>Clique para travar o mouse</h2>
+          <p>Pressione <b>ESC</b> a qualquer momento para liberar.</p>
+          <button id="lock-btn" class="primary">Travar mouse e iniciar</button>
+        </div>
+      </div>
+
+      <div id="pause-overlay" class="overlay hidden">
+        <div class="overlay-card">
+          <h2>Pausado</h2>
+          <button id="resume-btn" class="primary">Continuar</button>
+          <button id="pause-quit-btn" class="ghost">Voltar ao menu</button>
+        </div>
+      </div>
+    </section>
+
+    <section id="results-screen" class="screen">
+      <div class="results-card">
+        <h1>Resultado</h1>
+        <div class="result-grid">
+          <div><span>Score final</span><b id="res-score">0</b></div>
+          <div><span>Precisao</span><b id="res-acc">0%</b></div>
+          <div><span>Acertos</span><b id="res-hits">0</b></div>
+          <div><span>Erros</span><b id="res-miss">0</b></div>
+          <div><span>Tempo medio reacao</span><b id="res-rt">-</b></div>
+          <div><span>Melhor sequencia</span><b id="res-streak">0</b></div>
+        </div>
+        <canvas id="res-chart" width="600" height="160"></canvas>
+        <div class="cta-row">
+          <button id="retry-btn" class="primary">Tentar novamente</button>
+          <button id="menu-btn" class="ghost">Voltar ao menu</button>
+        </div>
+      </div>
+    </section>
+  </div>
+
+  <script type="module" src="js/main.js"></script>
+</body>
+</html>
