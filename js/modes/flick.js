@@ -63,11 +63,10 @@ export class FlickMode {
     this.engine.clampToFrontWall(pos, size);
 
     const targetColor = new THREE.Color(this.settings.targetColor || "#ff4d6d");
-    const geo = new THREE.SphereGeometry(size, 20, 14);
-    const mat = new THREE.MeshStandardMaterial({
+    const geo = new THREE.SphereGeometry(size, 16, 12);
+    const mat = new THREE.MeshLambertMaterial({
       color: targetColor,
       emissive: targetColor.clone().multiplyScalar(0.35),
-      roughness: 0.4,
     });
     const m = new THREE.Mesh(geo, mat);
     m.position.copy(pos);

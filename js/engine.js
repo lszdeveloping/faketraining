@@ -40,8 +40,9 @@ export class Engine {
     this.renderer = null;
     this._perf = {
       antialias: false,
-      pixelRatioCap: 1.25,
+      pixelRatioCap: 1,
     };
+    this.softwareRenderer = false;
 
     this.scene = new THREE.Scene();
     // Light fog keeps depth cues with low cost.
@@ -85,12 +86,54 @@ export class Engine {
       canvas: this.canvas,
       antialias: !!this._perf.antialias,
       powerPreference: "high-performance",
+      precision: "mediump",
       stencil: false,
       depth: true,
       alpha: false,
+      preserveDrawingBuffer: false,
+      premultipliedAlpha: true,
+      failIfMajorPerformanceCaveat: false,
     });
     this.renderer.info.autoReset = true;
     this.renderer.setPixelRatio(Math.min(window.devicePixelRatio || 1, this._perf.pixelRatioCap));
+    this._detectSoftwareRenderer();
+  }
+
+  _detectSoftwareRenderer() {
+    try {
+      const gl = this.renderer.getContext();
+      const ext = gl.getExtension("WEBGL_debug_renderer_info");
+      if (!ext) return;
+      const rendererName = String(gl.getParameter(ext.UNMASKED_RENDERER_WEBGL) || "");
+      const vendorName = String(gl.getParameter(ext.UNMASKED_VENDOR_WEBGL) || "");
+      const combined = (rendererName + " " + vendorName).toLowerCase();
+      const isSoftware = /swiftshader|llvmpipe|software|microsoft basic render|google.*swiftshader/.test(combined);
+      this.softwareRenderer = isSoftware;
+      if (isSoftware) {
+        console.warn(
+          "[AimForge] WebGL is running on a SOFTWARE renderer (" + rendererName +
+          "). Enable 'Use hardware acceleration when available' in your browser settings for high FPS."
+        );
+        this._showSoftwareWarning(rendererName);
+      }
+    } catch {}
+  }
+
+  _showSoftwareWarning(rendererName) {
+    if (typeof document === "undefined") return;
+    if (document.getElementById("software-renderer-warn")) return;
+    const div = document.createElement("div");
+    div.id = "software-renderer-warn";
+    div.style.cssText =
+      "position:fixed;top:8px;left:50%;transform:translateX(-50%);" +
+      "background:#ff3344;color:#fff;font:600 12px/1.3 system-ui,sans-serif;" +
+      "padding:8px 14px;border-radius:6px;z-index:9999;max-width:560px;text-align:center;" +
+      "box-shadow:0 4px 16px rgba(0,0,0,.4);cursor:pointer;";
+    div.textContent =
+      "FPS baixo: aceleração de hardware desabilitada no navegador (" + rendererName +
+      "). Ative em Configurações → Sistema → 'Usar aceleração de hardware'. Clique para fechar.";
+    div.addEventListener("click", () => div.remove());
+    document.body.appendChild(div);
   }
 
   applyPerformance(settings = {}) {
@@ -132,10 +175,9 @@ export class Engine {
     // Room: a large box you stand inside.
     const roomSize = 80;
     const roomGeo = new THREE.BoxGeometry(roomSize, 30, roomSize);
-    const roomMat = new THREE.MeshStandardMaterial({
+    const roomMat = new THREE.MeshLambertMaterial({
       color: 0x262d3c,
       side: THREE.BackSide,
-      roughness: 0.95,
     });
     const room = new THREE.Mesh(roomGeo, roomMat);
     room.position.y = 13;
@@ -150,7 +192,7 @@ export class Engine {
 
     // Back wall plane to spawn targets onto (visual marker).
     const wallGeo = new THREE.PlaneGeometry(this.frontWall.width, this.frontWall.height);
-    const wallMat = new THREE.MeshStandardMaterial({ color: 0x31394b, roughness: 1 });
+    const wallMat = new THREE.MeshLambertMaterial({ color: 0x31394b });
     const wall = new THREE.Mesh(wallGeo, wallMat);
     wall.position.set(0, this.frontWall.centerY, this.frontWall.z);
     this.scene.add(wall);
@@ -213,9 +255,9 @@ export class Engine {
     this.camera.updateProjectionMatrix();
   }
 
-  applyMouseDelta(dx, dy, sens, game, invertY = false) {
-    const yawDeg = deltaToDegrees(dx, sens, game);
-    const pitchDeg = deltaToDegrees(dy, sens, game) * (invertY ? -1 : 1);
+  applyMouseDelta(dx, dy, sens, game, invertY = false, mult, customYaw) {
+    const yawDeg = deltaToDegrees(dx, sens, game, mult, customYaw);
+    const pitchDeg = deltaToDegrees(dy, sens, game, mult, customYaw) * (invertY ? -1 : 1);
 
     this.yaw -= yawDeg * DEG2RAD;
     this.pitch -= pitchDeg * DEG2RAD;

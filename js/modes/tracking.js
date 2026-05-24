@@ -21,11 +21,10 @@ export class TrackingMode {
     const size = Math.max(0.1, this.settings.trackingTargetSize || this.settings.targetSize);
     const bounds = this.engine.getFrontWallBounds(size);
     const targetColor = new THREE.Color(this.settings.targetColor || "#ffcc4d");
-    const geo = new THREE.SphereGeometry(size, 24, 18);
-    const mat = new THREE.MeshStandardMaterial({
+    const geo = new THREE.SphereGeometry(size, 16, 12);
+    const mat = new THREE.MeshLambertMaterial({
       color: targetColor,
       emissive: targetColor.clone().multiplyScalar(0.3),
-      roughness: 0.4,
     });
     const m = new THREE.Mesh(geo, mat);
     m.position.set(

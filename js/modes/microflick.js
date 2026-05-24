@@ -74,11 +74,10 @@ export class MicroflickMode {
     this.engine.clampToFrontWall(pos, size);
 
     const targetColor = new THREE.Color(this.settings.targetColor || "#36d1ff");
-    const geo = new THREE.SphereGeometry(size, 20, 16);
-    const mat = new THREE.MeshStandardMaterial({
+    const geo = new THREE.SphereGeometry(size, 16, 12);
+    const mat = new THREE.MeshLambertMaterial({
       color: targetColor,
       emissive: targetColor.clone().multiplyScalar(0.33),
-      roughness: 0.35,
     });
     const m = new THREE.Mesh(geo, mat);
     m.position.copy(pos);

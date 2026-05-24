@@ -10,12 +10,15 @@ export function showScreen(id) {
   document.getElementById(id).classList.add("active");
 }
 
-export function bindMenu(onStart) {
+export function bindMenu(onStart, onCalibrate) {
   // hydrate inputs from state
   $("#game").value = state.game;
   $("#sens").value = state.sens;
   $("#dpi").value = state.dpi;
   $("#fov").value = state.fov;
+  $("#browserFeelMult").value = state.browserFeelMult;
+  $("#customYaw").value = state.customYaw;
+  document.getElementById("customYaw-wrap").style.display = state.game === "custom" ? "" : "none";
   $("#duration").value = String(state.duration);
   $("#duration-custom").value = state.durationCustom;
   $("#targetSize").value = state.targetSize;
@@ -63,6 +66,8 @@ export function bindMenu(onStart) {
     ["#sens", "sens", parseFloat],
     ["#dpi", "dpi", (v) => parseInt(v, 10)],
     ["#fov", "fov", (v) => parseInt(v, 10)],
+    ["#browserFeelMult", "browserFeelMult", parseFloat],
+    ["#customYaw", "customYaw", parseFloat],
     ["#duration-custom", "durationCustom", (v) => parseInt(v, 10)],
     ["#targetSize", "targetSize", parseFloat],
     ["#targetDistance", "targetDistance", parseFloat],
@@ -85,7 +90,7 @@ export function bindMenu(onStart) {
 
   $("#game").addEventListener("change", () => {
     setState({ game: $("#game").value });
-    // suggested FOV when switching
+    document.getElementById("customYaw-wrap").style.display = state.game === "custom" ? "" : "none";
     if (state.game === "valorant" && (state.fov === 90 || !state.fov)) {
       setState({ fov: 103 });
       $("#fov").value = 103;
@@ -122,6 +127,7 @@ export function bindMenu(onStart) {
 
   $("#start-btn").textContent = `Iniciar treino (${labelMode(state.mode)})`;
   $("#start-btn").addEventListener("click", onStart);
+  $("#calibrate-btn").addEventListener("click", onCalibrate);
   $("#fullscreen-btn").addEventListener("click", () => {
     if (!document.fullscreenElement) document.documentElement.requestFullscreen?.();
     else document.exitFullscreen?.();
@@ -138,14 +144,22 @@ export function labelMode(m) {
 
 export function updateReadouts() {
   const edpi = getEdpi(state.dpi, state.sens);
-  const cm360 = getCm360(state.dpi, state.sens, state.game);
-  const other = state.game === "valorant" ? "cs2" : "valorant";
-  const equiv = convertSensitivity(state.sens, state.game, other);
+  const cm360 = getCm360(state.dpi, state.sens, state.game, state.browserFeelMult, state.customYaw);
+
+  let equivLabel, equivVal;
+  if (state.game === "custom") {
+    equivLabel = "Valorant equiv.";
+    equivVal = convertSensitivity(state.sens, state.game, "valorant", state.customYaw).toFixed(3);
+  } else {
+    const other = state.game === "valorant" ? "cs2" : "valorant";
+    equivLabel = `${other === "cs2" ? "CS2" : "Valorant"} equivalente`;
+    equivVal = convertSensitivity(state.sens, state.game, other).toFixed(3);
+  }
 
   $("#r-edpi").textContent = edpi || "-";
   $("#r-cm360").textContent = cm360 ? cm360.toFixed(2) + " cm" : "-";
-  $("#r-equiv-label").textContent = `${other === "cs2" ? "CS2" : "Valorant"} equivalente`;
-  $("#r-equiv").textContent = equiv.toFixed(3);
+  $("#r-equiv-label").textContent = equivLabel;
+  $("#r-equiv").textContent = equivVal;
 }
 
 export function renderCrosshair() {

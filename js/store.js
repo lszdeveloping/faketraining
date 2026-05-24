@@ -23,10 +23,12 @@ const defaults = {
   crossColor: "#00ff88",
   crossSize: 10,
   crossThick: 2,
-  pixelRatioCap: 1.25,
+  pixelRatioCap: 1,
   antialias: false,
   smoothing: false,
   invertY: false,
+  browserFeelMult: 1.22173,
+  customYaw: 0.022,
 };
 
 function load() {

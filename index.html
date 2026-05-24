@@ -47,16 +47,23 @@
               <select id="game">
                 <option value="valorant">Valorant</option>
                 <option value="cs2">CS2</option>
+                <option value="custom">Custom</option>
               </select>
             </label>
             <label>Sensibilidade
               <input id="sens" type="number" step="0.001" min="0.001" value="0.4" />
             </label>
-            <label>DPI
+            <label>DPI <small style="opacity:.6;font-weight:400">(opcional, só pra cm/360)</small>
               <input id="dpi" type="number" step="50" min="100" value="800" />
             </label>
             <label>FOV
               <input id="fov" type="number" step="1" min="60" max="120" value="103" />
+            </label>
+            <label>Ajuste browser <small style="opacity:.6;font-weight:400">(1.22 = feel aiming.pro, 1.0 = math puro)</small>
+              <input id="browserFeelMult" type="number" step="0.01" min="0.5" max="2" value="1.22" />
+            </label>
+            <label id="customYaw-wrap" style="display:none">Yaw customizado <small style="opacity:.6;font-weight:400">(graus/count, ex: 0.022)</small>
+              <input id="customYaw" type="number" step="0.001" min="0.001" max="1" value="0.022" />
             </label>
           </div>
           <div class="readouts">
@@ -169,6 +176,7 @@
 
       <div class="cta-row">
         <button id="start-btn" class="primary">Iniciar treino (Flick)</button>
+        <button id="calibrate-btn" class="ghost">Calibrar sensibilidade</button>
         <button id="fullscreen-btn" class="ghost">Tela cheia</button>
       </div>
     </section>
@@ -197,10 +205,22 @@
         </div>
       </div>
 
+      <div id="calib-hud" class="hidden">
+        <div class="calib-title">Calibração de Sensibilidade</div>
+        <div class="calib-row"><span>Graus girados</span><b id="calib-deg">0.0°</b></div>
+        <div class="calib-row"><span>Completou 360°</span><b id="calib-laps">0x</b></div>
+        <div class="calib-row"><span>cm/360 atual</span><b id="calib-cm360">-</b></div>
+        <p class="calib-hint">Mova o mouse horizontalmente. Compare com quantos graus 360° ocupam no seu jogo.</p>
+        <div class="calib-btns">
+          <button id="calib-reset-btn" class="ghost-sm">Zerar</button>
+          <button id="calib-exit-btn" class="ghost-sm">Sair</button>
+        </div>
+      </div>
+
       <div id="click-overlay" class="overlay">
         <div class="overlay-card">
-          <h2>Clique para travar o mouse</h2>
-          <p>Pressione <b>ESC</b> a qualquer momento para liberar.</p>
+          <h2 id="lock-overlay-title">Clique para travar o mouse</h2>
+          <p id="lock-overlay-desc">Pressione <b>ESC</b> a qualquer momento para liberar.</p>
           <button id="lock-btn" class="primary">Travar mouse e iniciar</button>
         </div>
       </div>

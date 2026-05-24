@@ -5,10 +5,13 @@ export class InputManager {
   constructor(canvas) {
     this.canvas = canvas;
     this.locked = false;
+    this.unadjustedMovement = false;
+    this.unadjustedSupported = null; // null = unknown, true/false after first attempt
     this.listeners = {
       mousemove: [],
       mousedown: [],
       lockchange: [],
+      unadjustedstatus: [],
     };
     this._smoothing = false;
     this._smoothFactor = 0.5;
@@ -48,7 +51,39 @@ export class InputManager {
   }
 
   requestLock() {
-    if (this.canvas.requestPointerLock) this.canvas.requestPointerLock();
+    if (!this.canvas.requestPointerLock) return;
+    // unadjustedMovement: true bypasses OS mouse acceleration / Windows pointer
+    // speed so movementX/Y are raw mouse counts, matching native game sensitivity.
+    let p;
+    try {
+      p = this.canvas.requestPointerLock({ unadjustedMovement: true });
+    } catch {
+      this._fallbackLock();
+      return;
+    }
+    if (p && typeof p.then === "function") {
+      p.then(() => {
+        this.unadjustedMovement = true;
+        this.unadjustedSupported = true;
+        this._emit("unadjustedstatus", { granted: true });
+      }).catch(() => {
+        this.unadjustedSupported = false;
+        this._fallbackLock();
+      });
+    } else {
+      // Older browsers: no promise returned. Can't confirm; assume not granted.
+      this.unadjustedSupported = false;
+      this.unadjustedMovement = false;
+      this._emit("unadjustedstatus", { granted: false });
+    }
+  }
+
+  _fallbackLock() {
+    this.unadjustedMovement = false;
+    try {
+      this.canvas.requestPointerLock();
+    } catch {}
+    this._emit("unadjustedstatus", { granted: false });
   }
 
   exitLock() {
