@@ -18,8 +18,9 @@ export class TrackingMode {
   }
 
   start() {
-    const size = Math.max(0.1, this.settings.trackingTargetSize || this.settings.targetSize);
-    const bounds = this.engine.getFrontWallBounds(size);
+    const size = Math.max(0.1, this.settings.targetSize);
+    const rangeDeg = this.settings.spawnRangeDeg || 30;
+    const cb = this.engine.getCircularWallBounds(rangeDeg, size);
     const targetColor = new THREE.Color(this.settings.targetColor || "#ffcc4d");
     const geo = new THREE.SphereGeometry(size, 16, 12);
     const mat = new THREE.MeshLambertMaterial({
@@ -27,10 +28,14 @@ export class TrackingMode {
       emissive: targetColor.clone().multiplyScalar(0.3),
     });
     const m = new THREE.Mesh(geo, mat);
+    // Spawn at random point inside circle (uniform on disk via sqrt distribution).
+    const angle = Math.random() * Math.PI * 2;
+    const r = Math.sqrt(Math.random()) * cb.radius;
+    const initY = THREE.MathUtils.clamp(cb.centerY + Math.sin(angle) * r, cb.minY, cb.maxY);
     m.position.set(
-      THREE.MathUtils.lerp(bounds.minX, bounds.maxX, Math.random()),
-      THREE.MathUtils.lerp(bounds.minY, bounds.maxY, Math.random()),
-      bounds.z
+      cb.centerX + Math.cos(angle) * r,
+      initY,
+      cb.z
     );
     m.userData.radius = size;
     this.engine.targets.add(m);
@@ -110,21 +115,44 @@ export class TrackingMode {
 
   _bounceInsideWall() {
     const radius = this._target.userData.radius || 0.6;
-    const bounds = this.engine.getFrontWallBounds(radius);
+    const rangeDeg = this.settings.spawnRangeDeg || 30;
+    const cb = this.engine.getCircularWallBounds(rangeDeg, radius);
     const p = this._target.position;
 
-    if (p.x < bounds.minX || p.x > bounds.maxX) {
-      p.x = THREE.MathUtils.clamp(p.x, bounds.minX, bounds.maxX);
-      this._velocity.x *= -0.9;
-      this._desiredVelocity.x *= -1;
-    }
-    if (p.y < bounds.minY || p.y > bounds.maxY) {
-      p.y = THREE.MathUtils.clamp(p.y, bounds.minY, bounds.maxY);
-      this._velocity.y *= -0.9;
-      this._desiredVelocity.y *= -1;
+    // Circular bounce around wall-center spawn area.
+    const dx = p.x - cb.centerX;
+    const dy = p.y - cb.centerY;
+    const dist = Math.sqrt(dx * dx + dy * dy);
+    if (dist > cb.radius) {
+      const nx = dist > 0 ? dx / dist : 1;
+      const ny = dist > 0 ? dy / dist : 0;
+      p.x = cb.centerX + nx * cb.radius;
+      p.y = cb.centerY + ny * cb.radius;
+      const vDotN = this._velocity.x * nx + this._velocity.y * ny;
+      if (vDotN > 0) {
+        this._velocity.x -= 2 * vDotN * nx * 0.9;
+        this._velocity.y -= 2 * vDotN * ny * 0.9;
+      }
+      const dvDotN = this._desiredVelocity.x * nx + this._desiredVelocity.y * ny;
+      if (dvDotN > 0) {
+        this._desiredVelocity.x -= 2 * dvDotN * nx;
+        this._desiredVelocity.y -= 2 * dvDotN * ny;
+      }
     }
 
-    p.z = bounds.z;
+    // Floor / wall-vertical guard (circle can extend below floor when rangeDeg is large).
+    if (p.y < cb.minY) {
+      p.y = cb.minY;
+      if (this._velocity.y < 0) this._velocity.y *= -0.9;
+      if (this._desiredVelocity.y < 0) this._desiredVelocity.y *= -1;
+    }
+    if (p.y > cb.maxY) {
+      p.y = cb.maxY;
+      if (this._velocity.y > 0) this._velocity.y *= -0.9;
+      if (this._desiredVelocity.y > 0) this._desiredVelocity.y *= -1;
+    }
+
+    p.z = cb.z;
   }
 
   /**

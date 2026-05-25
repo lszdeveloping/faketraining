@@ -10,14 +10,11 @@ const defaults = {
   duration: 60,
   durationCustom: 45,
   targetSize: 0.6,
-  targetDistance: 15,
   spawnRangeDeg: 30,
-  trackingTargetSize: 0.7,
   trackingSpeed: 4.5,
   trackingRandomness: 70,
   targetColor: "#ff4d6d",
   bgTheme: "dark",
-  difficulty: "medium",
   mode: "flick",
   crossStyle: "cross",
   crossColor: "#00ff88",
@@ -25,10 +22,7 @@ const defaults = {
   crossThick: 2,
   pixelRatioCap: 1,
   antialias: false,
-  smoothing: false,
   invertY: false,
-  browserFeelMult: 1.22173,
-  customYaw: 0.022,
 };
 
 function load() {

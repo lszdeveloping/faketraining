@@ -345,54 +345,6 @@ button.ghost-sm:hover { border-color: var(--accent); }
 .overlay-card p { color: var(--muted); margin: 0 0 18px; }
 .overlay-card .primary { margin-right: 8px; }
 
-/* ---------------- CALIBRATION HUD ---------------- */
-#calib-hud {
-  position: absolute;
-  bottom: 60px;
-  left: 50%;
-  transform: translateX(-50%);
-  background: rgba(11, 13, 18, 0.9);
-  border: 1px solid var(--border);
-  border-radius: 12px;
-  padding: 16px 22px;
-  z-index: 15;
-  min-width: 240px;
-  backdrop-filter: blur(8px);
-  pointer-events: auto;
-}
-#calib-hud.hidden { display: none; }
-.calib-title {
-  font-size: 11px;
-  text-transform: uppercase;
-  letter-spacing: 1px;
-  color: var(--accent);
-  font-weight: 700;
-  margin-bottom: 12px;
-}
-.calib-row {
-  display: flex;
-  justify-content: space-between;
-  align-items: baseline;
-  gap: 16px;
-  margin-bottom: 6px;
-}
-.calib-row span {
-  font-size: 11px;
-  color: var(--muted);
-  text-transform: uppercase;
-}
-.calib-row b { font-size: 18px; }
-.calib-hint {
-  font-size: 11px;
-  color: var(--muted);
-  margin: 10px 0 10px;
-  line-height: 1.5;
-}
-.calib-btns {
-  display: flex;
-  gap: 8px;
-}
-
 /* ---------------- RESULTS ---------------- */
 #results-screen {
   display: none;

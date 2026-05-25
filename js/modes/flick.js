@@ -1,14 +1,7 @@
 import * as THREE from "three";
 
-// FLICK mode: spawn one target inside a CIRCULAR FOV range around the camera forward.
-// Hit -> respawn. Miss -> score penalty. Score: hits*100 - misses*25 + speed bonus + streak bonus.
-
-const DIFFICULTY = {
-  easy: { rangeMul: 0.6, sizeMul: 1.2 },
-  medium: { rangeMul: 1.0, sizeMul: 1.0 },
-  hard: { rangeMul: 1.3, sizeMul: 0.8 },
-  custom: { rangeMul: 1.0, sizeMul: 1.0 },
-};
+// FLICK mode: spawn one target inside a CIRCULAR FOV range around the wall center.
+// Hit -> respawn. Miss -> score penalty.
 
 const DEG2RAD = Math.PI / 180;
 const FLOOR_Y = 0.05;
@@ -22,7 +15,6 @@ export class FlickMode {
     this._target = null;
     this._spawnAt = 0;
     this._t = 0;
-    this._diff = DIFFICULTY[settings.difficulty] || DIFFICULTY.medium;
   }
 
   start() {
@@ -36,10 +28,11 @@ export class FlickMode {
       this._target.material.dispose();
     }
 
-    const size = this.settings.targetSize * this._diff.sizeMul;
-    const rangeDeg = this.settings.spawnRangeDeg * this._diff.rangeMul;
+    const size = this.settings.targetSize;
+    const rangeDeg = this.settings.spawnRangeDeg;
+    const center = this.engine.getWallCenterAngles();
 
-    let pos = this.engine.pointOnFrontWallFromAngles(this.engine.yaw, this.engine.pitch, size);
+    let pos = this.engine.pointOnFrontWallFromAngles(center.yaw, center.pitch, size);
     // Try up to 12 times to land a spawn that isn't intersecting the floor.
     for (let i = 0; i < 12; i++) {
       const angle = Math.random() * Math.PI * 2;
@@ -51,8 +44,8 @@ export class FlickMode {
       const yawOff = Math.sin(angle) * offRad;
       const pitchOff = Math.cos(angle) * offRad;
 
-      const yaw = this.engine.yaw + yawOff;
-      const pitch = THREE.MathUtils.clamp(this.engine.pitch + pitchOff, -Math.PI / 3, Math.PI / 3);
+      const yaw = center.yaw + yawOff;
+      const pitch = THREE.MathUtils.clamp(center.pitch + pitchOff, -Math.PI / 3, Math.PI / 3);
 
       pos = this.engine.pointOnFrontWallFromAngles(yaw, pitch, size);
 

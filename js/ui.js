@@ -10,28 +10,22 @@ export function showScreen(id) {
   document.getElementById(id).classList.add("active");
 }
 
-export function bindMenu(onStart, onCalibrate) {
+export function bindMenu(onStart) {
   // hydrate inputs from state
   $("#game").value = state.game;
   $("#sens").value = state.sens;
   $("#dpi").value = state.dpi;
   $("#fov").value = state.fov;
-  $("#browserFeelMult").value = state.browserFeelMult;
-  $("#customYaw").value = state.customYaw;
-  document.getElementById("customYaw-wrap").style.display = state.game === "custom" ? "" : "none";
   $("#duration").value = String(state.duration);
   $("#duration-custom").value = state.durationCustom;
   $("#targetSize").value = state.targetSize;
-  $("#targetDistance").value = state.targetDistance;
   $("#spawnRangeDeg").value = state.spawnRangeDeg;
-  $("#trackingTargetSize").value = state.trackingTargetSize;
   $("#trackingSpeed").value = state.trackingSpeed;
   $("#trackingRandomness").value = state.trackingRandomness;
   $("#targetColor").value = state.targetColor;
   $("#bgTheme").value = state.bgTheme;
   $("#pixelRatioCap").value = state.pixelRatioCap;
   $("#antialias").value = state.antialias ? "on" : "off";
-  $("#difficulty").value = state.difficulty;
   $("#crossStyle").value = state.crossStyle;
   $("#crossColor").value = state.crossColor;
   $("#crossSize").value = state.crossSize;
@@ -66,13 +60,9 @@ export function bindMenu(onStart, onCalibrate) {
     ["#sens", "sens", parseFloat],
     ["#dpi", "dpi", (v) => parseInt(v, 10)],
     ["#fov", "fov", (v) => parseInt(v, 10)],
-    ["#browserFeelMult", "browserFeelMult", parseFloat],
-    ["#customYaw", "customYaw", parseFloat],
     ["#duration-custom", "durationCustom", (v) => parseInt(v, 10)],
     ["#targetSize", "targetSize", parseFloat],
-    ["#targetDistance", "targetDistance", parseFloat],
     ["#spawnRangeDeg", "spawnRangeDeg", parseFloat],
-    ["#trackingTargetSize", "trackingTargetSize", parseFloat],
     ["#trackingSpeed", "trackingSpeed", parseFloat],
     ["#trackingRandomness", "trackingRandomness", (v) => parseInt(v, 10)],
     ["#pixelRatioCap", "pixelRatioCap", parseFloat],
@@ -90,7 +80,6 @@ export function bindMenu(onStart, onCalibrate) {
 
   $("#game").addEventListener("change", () => {
     setState({ game: $("#game").value });
-    document.getElementById("customYaw-wrap").style.display = state.game === "custom" ? "" : "none";
     if (state.game === "valorant" && (state.fov === 90 || !state.fov)) {
       setState({ fov: 103 });
       $("#fov").value = 103;
@@ -117,17 +106,12 @@ export function bindMenu(onStart, onCalibrate) {
     setState({ bgTheme: $("#bgTheme").value });
     renderPreviews();
   });
-  $("#difficulty").addEventListener("change", () => {
-    setState({ difficulty: $("#difficulty").value });
-    renderPreviews();
-  });
   $("#antialias").addEventListener("change", () => {
     setState({ antialias: $("#antialias").value === "on" });
   });
 
   $("#start-btn").textContent = `Iniciar treino (${labelMode(state.mode)})`;
   $("#start-btn").addEventListener("click", onStart);
-  $("#calibrate-btn").addEventListener("click", onCalibrate);
   $("#fullscreen-btn").addEventListener("click", () => {
     if (!document.fullscreenElement) document.documentElement.requestFullscreen?.();
     else document.exitFullscreen?.();
@@ -144,22 +128,14 @@ export function labelMode(m) {
 
 export function updateReadouts() {
   const edpi = getEdpi(state.dpi, state.sens);
-  const cm360 = getCm360(state.dpi, state.sens, state.game, state.browserFeelMult, state.customYaw);
-
-  let equivLabel, equivVal;
-  if (state.game === "custom") {
-    equivLabel = "Valorant equiv.";
-    equivVal = convertSensitivity(state.sens, state.game, "valorant", state.customYaw).toFixed(3);
-  } else {
-    const other = state.game === "valorant" ? "cs2" : "valorant";
-    equivLabel = `${other === "cs2" ? "CS2" : "Valorant"} equivalente`;
-    equivVal = convertSensitivity(state.sens, state.game, other).toFixed(3);
-  }
+  const cm360 = getCm360(state.game, state.sens, state.dpi);
+  const other = state.game === "valorant" ? "cs2" : "valorant";
+  const equiv = convertSensitivity(state.sens, state.game, other);
 
   $("#r-edpi").textContent = edpi || "-";
   $("#r-cm360").textContent = cm360 ? cm360.toFixed(2) + " cm" : "-";
-  $("#r-equiv-label").textContent = equivLabel;
-  $("#r-equiv").textContent = equivVal;
+  $("#r-equiv-label").textContent = `${other === "cs2" ? "CS2" : "Valorant"} equivalente`;
+  $("#r-equiv").textContent = equiv.toFixed(3);
 }
 
 export function renderCrosshair() {
@@ -282,7 +258,7 @@ function renderCrosshairPreview() {
 
 /**
  * Target preview: simulate apparent target size and spawn ring radius
- * using the current FOV, target size, distance and spawnRangeDeg.
+ * using the current FOV, target size, fixed wall distance, and spawnRangeDeg.
  */
 function renderTargetPreview() {
   const canvas = document.getElementById("target-preview");
@@ -307,8 +283,9 @@ function renderTargetPreview() {
   let ringPx = (tanSpawn / tanHalfFov) * (w / 2);
   ringPx = Math.min(ringPx, Math.min(w, h) / 2 - 6);
 
-  // apparent target radius in pixels
-  const angularRadiusRad = Math.atan(state.targetSize / state.targetDistance);
+  // apparent target radius in pixels (wall is at fixed ~20 units from camera)
+  const WALL_DIST = 20;
+  const angularRadiusRad = Math.atan(state.targetSize / WALL_DIST);
   let targetPx = (Math.tan(angularRadiusRad) / tanHalfFov) * (w / 2);
   targetPx = Math.max(2, Math.min(targetPx, Math.min(w, h) / 2 - 4));
 
@@ -363,7 +340,7 @@ function renderTargetPreview() {
   // labels
   ctx.fillStyle = theme.label;
   ctx.font = "10px sans-serif";
-  ctx.fillText(`FOV ${fov}deg - target ${state.targetSize}u @ ${state.targetDistance}u`, 8, 16);
+  ctx.fillText(`FOV ${fov}deg - target ${state.targetSize}u @ ${WALL_DIST}u`, 8, 16);
   ctx.fillText(`spawn ring ${state.spawnRangeDeg}deg`, 8, h - 8);
 }
 

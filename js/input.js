@@ -13,10 +13,6 @@ export class InputManager {
       lockchange: [],
       unadjustedstatus: [],
     };
-    this._smoothing = false;
-    this._smoothFactor = 0.5;
-    this._smoothX = 0;
-    this._smoothY = 0;
 
     this._onMove = this._onMove.bind(this);
     this._onDown = this._onDown.bind(this);
@@ -25,13 +21,6 @@ export class InputManager {
     document.addEventListener("pointerlockchange", this._onLockChange);
     document.addEventListener("mousemove", this._onMove);
     document.addEventListener("mousedown", this._onDown);
-  }
-
-  setSmoothing(on, factor = 0.5) {
-    this._smoothing = on;
-    this._smoothFactor = factor;
-    this._smoothX = 0;
-    this._smoothY = 0;
   }
 
   on(event, fn) {
@@ -71,7 +60,6 @@ export class InputManager {
         this._fallbackLock();
       });
     } else {
-      // Older browsers: no promise returned. Can't confirm; assume not granted.
       this.unadjustedSupported = false;
       this.unadjustedMovement = false;
       this._emit("unadjustedstatus", { granted: false });
@@ -97,17 +85,7 @@ export class InputManager {
 
   _onMove(e) {
     if (!this.locked) return;
-    let dx = e.movementX || 0;
-    let dy = e.movementY || 0;
-
-    if (this._smoothing) {
-      this._smoothX = this._smoothX * this._smoothFactor + dx * (1 - this._smoothFactor);
-      this._smoothY = this._smoothY * this._smoothFactor + dy * (1 - this._smoothFactor);
-      dx = this._smoothX;
-      dy = this._smoothY;
-    }
-
-    this._emit("mousemove", { dx, dy });
+    this._emit("mousemove", { dx: e.movementX || 0, dy: e.movementY || 0 });
   }
 
   _onDown(e) {

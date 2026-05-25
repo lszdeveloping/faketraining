@@ -216,6 +216,30 @@ export class Engine {
     return position;
   }
 
+  /**
+   * Circular play area on the front wall, centered on the wall center,
+   * with a radius derived from the desired FOV cone (rangeDeg).
+   * Used by tracking mode for initial spawn + bounce containment.
+   */
+  getCircularWallBounds(rangeDeg, radius = 0) {
+    const center = this.getWallCenterAngles();
+    const centerPos = this.pointOnFrontWallFromAngles(center.yaw, center.pitch, 0);
+    const distToWall = Math.abs(this.frontWall.z - this.camera.position.z);
+    const worldRadius = Math.tan(rangeDeg * Math.PI / 180) * distToWall - radius;
+    const halfH = this.frontWall.height / 2;
+    const margin = radius + 0.05;
+    const minY = Math.max(FLOOR_Y + margin, this.frontWall.centerY - halfH + margin);
+    const maxY = this.frontWall.centerY + halfH - margin;
+    return {
+      centerX: centerPos.x,
+      centerY: centerPos.y,
+      z: centerPos.z,
+      radius: Math.max(0.5, worldRadius),
+      minY,
+      maxY,
+    };
+  }
+
   getFrontWallBounds(radius = 0) {
     const halfW = this.frontWall.width / 2;
     const halfH = this.frontWall.height / 2;
@@ -226,6 +250,23 @@ export class Engine {
       minY: Math.max(FLOOR_Y + margin, this.frontWall.centerY - halfH + margin),
       maxY: this.frontWall.centerY + halfH - margin,
       z: this.frontWall.z + margin,
+    };
+  }
+
+  /**
+   * Yaw/pitch from camera position toward the front wall's center point.
+   * Used by spawn modes so the circular spawn FOV is anchored on the wall,
+   * not on wherever the player happens to be looking.
+   */
+  getWallCenterAngles() {
+    const camPos = this.camera.position;
+    const dx = 0 - camPos.x;
+    const dy = this.frontWall.centerY - camPos.y;
+    const dz = this.frontWall.z - camPos.z;
+    const horizDist = Math.sqrt(dx * dx + dz * dz);
+    return {
+      yaw: Math.atan2(-dx, -dz),
+      pitch: Math.atan2(dy, horizDist),
     };
   }
 
@@ -255,9 +296,9 @@ export class Engine {
     this.camera.updateProjectionMatrix();
   }
 
-  applyMouseDelta(dx, dy, sens, game, invertY = false, mult, customYaw) {
-    const yawDeg = deltaToDegrees(dx, sens, game, mult, customYaw);
-    const pitchDeg = deltaToDegrees(dy, sens, game, mult, customYaw) * (invertY ? -1 : 1);
+  applyMouseDelta(dx, dy, sens, game, invertY = false) {
+    const yawDeg = deltaToDegrees(dx, sens, game);
+    const pitchDeg = deltaToDegrees(dy, sens, game) * (invertY ? -1 : 1);
 
     this.yaw -= yawDeg * DEG2RAD;
     this.pitch -= pitchDeg * DEG2RAD;

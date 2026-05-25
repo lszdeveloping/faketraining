@@ -1,16 +1,12 @@
 import * as THREE from "three";
 
-// MICROFLICK: small targets spawn close to current crosshair direction.
-// Trains tiny corrections. Spawn radius defined in degrees from current look dir.
-
-const DIFFICULTY = {
-  easy: { maxDeg: 6, sizeMul: 1.1, gap: 0.15 },
-  medium: { maxDeg: 4, sizeMul: 0.8, gap: 0.10 },
-  hard: { maxDeg: 2.5, sizeMul: 0.6, gap: 0.08 },
-  custom: { maxDeg: 4, sizeMul: 0.8, gap: 0.10 },
-};
+// MICROFLICK: small targets spawn close to wall center.
+// Trains tiny corrections. Spawn radius defined in degrees from wall center.
 
 const DEG2RAD = Math.PI / 180;
+const MICRO_MAX_DEG = 4;
+const MICRO_SIZE_MUL = 0.8;
+const MICRO_GAP = 0.10;
 
 export class MicroflickMode {
   constructor(engine, stats, settings) {
@@ -20,7 +16,6 @@ export class MicroflickMode {
     this.name = "microflick";
     this._target = null;
     this._spawnAt = 0;
-    this._diff = DIFFICULTY[settings.difficulty] || DIFFICULTY.medium;
     this._lastCorrection = 0;
     this._corrections = [];
     this._lastAngles = [];
@@ -37,14 +32,14 @@ export class MicroflickMode {
       this._target.geometry.dispose();
       this._target.material.dispose();
     }
-    const size = Math.max(0.12, this.settings.targetSize * this._diff.sizeMul * 0.6);
+    const size = Math.max(0.12, this.settings.targetSize * MICRO_SIZE_MUL * 0.6);
     const FLOOR_Y = 0.05;
 
-    // Pick a random offset in degrees from CURRENT look direction.
-    // Microflick stays small even with big spawnRange; cap to maxDeg.
-    const maxDeg = Math.min(this._diff.maxDeg, this.settings.spawnRangeDeg || this._diff.maxDeg);
+    // Spawn ring centered on wall center. Microflick caps offset to MICRO_MAX_DEG.
+    const maxDeg = Math.min(MICRO_MAX_DEG, this.settings.spawnRangeDeg || MICRO_MAX_DEG);
+    const center = this.engine.getWallCenterAngles();
     let offsetDeg = 0;
-    let pos = this.engine.pointOnFrontWallFromAngles(this.engine.yaw, this.engine.pitch, size);
+    let pos = this.engine.pointOnFrontWallFromAngles(center.yaw, center.pitch, size);
     let chosenAngle = 0;
     let hasChosenAngle = false;
     for (let i = 0; i < 14; i++) {
@@ -60,8 +55,8 @@ export class MicroflickMode {
       const offY = Math.cos(angle) * offsetDeg * DEG2RAD;
       const offX = Math.sin(angle) * offsetDeg * DEG2RAD;
 
-      const yaw = this.engine.yaw + offX;
-      const pitch = THREE.MathUtils.clamp(this.engine.pitch + offY, -Math.PI / 3, Math.PI / 3);
+      const yaw = center.yaw + offX;
+      const pitch = THREE.MathUtils.clamp(center.pitch + offY, -Math.PI / 3, Math.PI / 3);
 
       pos = this.engine.pointOnFrontWallFromAngles(yaw, pitch, size);
       if (pos.y - size > FLOOR_Y) {
@@ -114,7 +109,7 @@ export class MicroflickMode {
       this.stats.registerHit(now, 120 + precisionBonus + reactionBonus);
       this._corrections.push(this._lastCorrection);
       this.engine.spawnHitFx(this._target.position, 0x36d1ff);
-      setTimeout(() => this._spawn(performance.now() / 1000), this._diff.gap * 1000);
+      setTimeout(() => this._spawn(performance.now() / 1000), MICRO_GAP * 1000);
       // wipe so user can't double-hit
       this.engine.targets.remove(this._target);
       this._target.geometry.dispose();
